@@ -1,16 +1,14 @@
 from tkinter import *
 from tkinter import messagebox
-import random
+import random, json
+from letters import letters, numbers, symbols
 import pyperclip
+
 LARGE_FONT = ("Verdana", 12)
 NORM_FONT = ("Helvetica", 10)
 SMALL_FONT = ("Helvetica", 8)
 default_email = "masud@fb.com"
-letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
-           'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
-           'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
-numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-symbols = ['!', '#', '$', '%', '&', '(', ')', '*', '+']
+
 nr_letters = random.randint(8, 10)
 nr_symbols = random.randint(2, 4)
 nr_numbers = random.randint(2, 4)
@@ -31,6 +29,16 @@ def popupmsg(msg):
     b1.pack()
     popup.mainloop()
 
+# This pop up displays the status of the find password button
+def popupmsg_search(msg):
+    popup = Tk()
+    popup.wm_title("Status")
+    label = Label(popup, text=msg, font=NORM_FONT)
+    label.pack(side="top", fill="x", pady=10)
+    b1 = Button(popup, text="Close", command=popup.destroy)
+    b1.pack()
+    popup.mainloop()
+
 
 # ---------------------------- PASSWORD GENERATOR ------------------------------- #
 # Password Generator Project
@@ -44,30 +52,68 @@ def generate_password():
     random_password = "".join(password_list)
 
     password_entry.insert(0, random_password)
-    password_list.copy(random_password)
+    # pyperclip.copy(random_password)
 
 
 # ---------------------------- SAVE PASSWORD ------------------------------- #
 def save_password():
-    w = website_entry.get()
-    e = email_entry.get()
-    p = password_entry.get()
-    if len(w) * len(p) == 0:
+    website = website_entry.get()
+    email = email_entry.get()
+    password = password_entry.get()
+    new_data = {
+        website: {
+            "email": email,
+            "password": password
+        }
+    }
+    if len(website) * len(password) == 0:
         messagebox.showinfo(title='Error', message='Information missing')
     else:
-        if messagebox.askokcancel(title='Information', message=f"{w} website is okay to save \n email:{e}\n"
-                                                               f"password:{p}"):
-            with open('data.txt', 'a') as f:
-                f.write(f'{w} | {e} | {p}\n')
+        try: # tries to read to check if file exists
+            with open('data.json', 'r') as data_file:
+                # json.dump(new_data, file, indent=2) # write to json file and indent
+                # reading old data
+                data = json.load(data_file)
 
-                website_entry.delete(0, END)
-                password_entry.delete(0, END)
+
+        # if no file create one
+        except FileNotFoundError:
+            with open('data.json', 'w') as data_file:
+                json.dump(new_data, data_file, indent=2)  # write to json file and indent
+
+        else:
+            # Updating old data with new data from line 76
+            data.update(new_data)
+            with open('data.json', 'w') as data_file:
+                # Saving updated data to json
+                json.dump(data, data_file, indent=2)
+        finally:
+            website_entry.delete(0, END)
+            password_entry.delete(0, END)
             popupmsg('Saved')
+
+
+# ---------------------------- SEARCH FUNCTION ------------------------------- #
+def find_password():
+    website = website_entry.get()
+    try:
+        with open('data.json', 'r') as data_file:
+            data = json.load(data_file)
+            webkey = data[website]
+    except KeyError:
+        popupmsg_search('No detail for the website exists')
+    except FileNotFoundError:
+        popupmsg_search('No Data File Found')
+    else:
+        email = webkey['email']
+        password = webkey['password']
+        msg = f'email:{email}\npassword{password}'
+        messagebox.showinfo(title=website, message=msg)
 
 
 # ---------------------------- UI SETUP ------------------------------- #
 mypass_image = PhotoImage(file='logo.png')
-canvas.create_image(50, 100, image=mypass_image)
+canvas.create_image(100, 100, image=mypass_image)
 canvas.grid(row=0, column=1)
 
 # Labels only
@@ -91,6 +137,9 @@ password_entry = Entry(width=17)
 password_entry.grid(row=3, column=1)
 
 # Button
+search_button = Button(window, text='Search Password', width=14, command=find_password)
+search_button.grid(row=1, column=3, sticky='e')
+
 generate_button = Button(window, text='Generate Password', width=14, command=generate_password)
 generate_button.grid(row=3, column=2, sticky='w')
 
